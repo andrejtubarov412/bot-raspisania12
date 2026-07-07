@@ -1,0 +1,161 @@
+{% extends "base.html" %}
+
+{% block title %}Админ-панель{% endblock %}
+
+{% block content %}
+    <a href="{{ url_for('index') }}" class="back-link">← На главную</a>
+    <h2>👑 Админ-панель</h2>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="flash {{ category }}">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <!-- Статистика -->
+    <div class="stats-grid">
+        <div class="stat-item"><div class="stat-number">{{ stats.users }}</div><div class="stat-label">👥 Сотрудников</div></div>
+        <div class="stat-item"><div class="stat-number">{{ stats.wishes }}</div><div class="stat-label">📝 Пожеланий</div></div>
+        <div class="stat-item"><div class="stat-number">{{ stats.schedule }}</div><div class="stat-label">📅 Смен</div></div>
+        <div class="stat-item"><div class="stat-number">{{ stats.hours }}</div><div class="stat-label">⏰ Записей часов</div></div>
+        <div class="stat-item"><div class="stat-number">{{ stats.unavailable }}</div><div class="stat-label">🚫 Недоступных дней</div></div>
+    </div>
+
+    <!-- Кнопки действий -->
+    <div style="display: flex; flex-wrap: wrap; gap: 12px; margin: 16px 0;">
+        <form method="POST" action="{{ url_for('admin_action') }}" style="display: inline;">
+            <input type="hidden" name="action" value="generate">
+            <button type="submit" class="btn btn-success">📊 Сгенерировать расписание</button>
+        </form>
+        <a href="{{ url_for('edit_schedule') }}" class="btn btn-primary">✏️ Изменить расписание</a>
+        <form method="POST" action="{{ url_for('admin_action') }}" style="display: inline;">
+            <input type="hidden" name="action" value="publish">
+            <button type="submit" class="btn btn-primary">📢 Опубликовать</button>
+        </form>
+        <form method="POST" action="{{ url_for('admin_action') }}" style="display: inline;" onsubmit="return confirm('Очистить все пожелания?')">
+            <input type="hidden" name="action" value="clear_wishes">
+            <button type="submit" class="btn btn-danger">🗑️ Очистить пожелания</button>
+        </form>
+        <form method="POST" action="{{ url_for('auto_hours') }}" style="display: inline; display: flex; align-items: center; gap: 8px;">
+            <label for="start_date" style="margin: 0;">Начало недели:</label>
+            <input type="date" name="start_date" value="{{ default_start_date }}" required>
+            <button type="submit" class="btn btn-success">⏳ Авторасстановка часов</button>
+        </form>
+    </div>
+
+    <!-- Добавить часы -->
+    <h3 style="margin-top: 28px;">⏰ Добавить часы</h3>
+    <form method="POST" action="{{ url_for('admin_action') }}" style="max-width: 700px;">
+        <input type="hidden" name="action" value="add_hours">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+            <div class="form-group">
+                <label for="full_name">Сотрудник (полное имя)</label>
+                <input type="text" id="full_name" name="full_name" placeholder="Иван Петров" required>
+            </div>
+            <div class="form-group">
+                <label for="date">Дата</label>
+                <input type="date" id="date" name="date" required>
+            </div>
+            <div class="form-group">
+                <label for="hours">Количество часов</label>
+                <input type="number" id="hours" name="hours" step="0.5" placeholder="8" required>
+            </div>
+            <div class="form-group">
+                <label for="shift">Смена</label>
+                <select id="shift" name="shift">
+                    <option value="утро">🌅 Утро (7ч)</option>
+                    <option value="день">☀️ День (12ч)</option>
+                    <option value="вечер">🌙 Вечер (5ч)</option>
+                </select>
+            </div>
+        </div>
+        <button type="submit" class="btn btn-primary">✅ Добавить часы</button>
+    </form>
+
+    <!-- Список сотрудников -->
+    <h3 style="margin-top: 28px;">👥 Сотрудники ({{ users|length }})</h3>
+    {% if users %}
+        <ul style="display: flex; flex-wrap: wrap; gap: 8px 20px; list-style: none; padding: 0;">
+            {% for user in users %}
+                <li>• {{ user[2] }} ({{ user[1] }}) [{{ user[3] }}]</li>
+            {% endfor %}
+        </ul>
+    {% else %}
+        <p>Нет сотрудников</p>
+    {% endif %}
+
+    <!-- Пожелания (таблица) -->
+    <h3 style="margin-top: 28px;">📝 Пожелания ({{ wishes|length }})</h3>
+    {% if wishes %}
+        <div class="table-responsive">
+            <table>
+                <thead><tr><th>Сотрудник</th><th>День</th><th>Смена</th></tr></thead>
+                <tbody>
+                    {% for wish in wishes %}
+                        <tr>
+                            <td>{{ wish[0] }}</td>
+                            <td>{{ wish[1]|capitalize }}</td>
+                            <td><span class="shift-badge shift-{{ wish[2] }}">{{ wish[2]|capitalize }}</span></td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <p>Нет пожеланий</p>
+    {% endif %}
+
+    <!-- Расписание (таблица) -->
+    <h3 style="margin-top: 28px;">📅 Расписание ({{ schedule|length }} смен)</h3>
+    {% if schedule %}
+        <div class="table-responsive">
+            <table>
+                <thead><tr><th>День</th><th>Смена</th><th>Сотрудник</th></tr></thead>
+                <tbody>
+                    {% set current_day = '' %}
+                    {% for item in schedule %}
+                        <tr>
+                            <td>{% if item[0] != current_day %}{{ item[0]|capitalize }}{% set current_day = item[0] %}{% endif %}</td>
+                            <td><span class="shift-badge shift-{{ item[1] }}">{{ item[1]|capitalize }}</span></td>
+                            <td>{{ item[3] }}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <p>Расписание не составлено</p>
+    {% endif %}
+
+    <!-- Часы (таблица) -->
+    <h3 style="margin-top: 28px;">⏰ Часы</h3>
+    {% if hours %}
+        <div class="table-responsive">
+            <table>
+                <thead><tr><th>Сотрудник</th><th>Всего часов</th></tr></thead>
+                <tbody>
+                    {% for name, total in hours %}
+                        <tr>
+                            <td>{{ name }}</td>
+                            <td><strong>{{ total|round(1) }} ч.</strong></td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <p>Нет данных</p>
+    {% endif %}
+
+    <!-- Информация о сменах -->
+    <div style="margin-top: 30px; padding: 16px; background: #f8faff; border-radius: 12px;">
+        <h3 style="margin: 0 0 8px 0; font-size: 1rem;">ℹ️ Информация о сменах</h3>
+        <ul style="list-style: none; display: flex; flex-wrap: wrap; gap: 18px; padding: 0;">
+            <li>🌅 Утро: 7 ч</li>
+            <li>☀️ День: 12 ч</li>
+            <li>🌙 Вечер: 5 ч</li>
+        </ul>
+    </div>
+{% endblock %}

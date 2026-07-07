@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+
+{% block title %}Редактирование расписания{% endblock %}
+
+{% block content %}
+    <a href="{{ url_for('admin') }}" class="back-link">← Назад в админ-панель</a>
+    <h2>✏️ Редактирование расписания</h2>
+    <p>Выберите сотрудника для каждой смены. Пустое значение = смена не назначена.</p>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="flash {{ category }}">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <form method="POST">
+        <div class="table-responsive">
+            <table>
+                <thead>
+                    <tr>
+                        <th>День</th>
+                        {% for shift in shifts %}
+                            <th>
+                                {{ shift|capitalize }}<br>
+                                <span style="font-weight: normal; font-size: 0.8rem; color: #666;">{{ week_dates[day] if day in week_dates else '' }}</span>
+                            </th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for day in days %}
+                        <tr>
+                            <td><strong>{{ day|capitalize }}</strong></td>
+                            {% for shift in shifts %}
+                                <td>
+                                    <select name="cell_{{ day }}_{{ shift }}">
+                                        <option value="0">—</option>
+                                        {% for u in users %}
+                                            {% set account_id = u[0] %}
+                                            {% set full_name = u[2] %}
+                                            <option value="{{ account_id }}" {% if schedule_dict.get((day, shift)) == account_id %}selected{% endif %}>
+                                                {{ full_name }}
+                                            </option>
+                                        {% endfor %}
+                                    </select>
+                                </td>
+                            {% endfor %}
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <button type="submit" class="btn btn-primary">💾 Сохранить изменения</button>
+    </form>
+{% endblock %}

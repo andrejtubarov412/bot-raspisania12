@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+
+{% block title %}Расписание{% endblock %}
+
+{% block content %}
+    <a href="{{ url_for('index') }}" class="back-link">← На главную</a>
+    <h2>📅 Расписание на неделю</h2>
+
+    {% if not_published %}
+        <div style="text-align: center; padding: 30px 0; background: #fff3cd; border-radius: 12px; border: 1px solid #ffc107;">
+            <p style="font-size: 1.2rem; margin: 0;">⏳ Расписание ещё не опубликовано администратором.</p>
+            <p style="color: #856404; margin: 5px 0 0;">Пожалуйста, зайдите позже.</p>
+        </div>
+    {% elif schedule %}
+        <div class="table-responsive">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Сотрудник</th>
+                        {% for day in days %}
+                            <th>
+                                {{ day[:3]|capitalize }}<br>
+                                <span style="font-weight: normal; font-size: 0.8rem; color: #666;">{{ week_dates[day] }}</span>
+                            </th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for u in users %}
+                        <tr>
+                            <td><strong>{{ u[2] }}</strong></td>
+                            {% for day in days %}
+                                <td>
+                                    {% set hours = schedule.get(u[2], {}).get(day) %}
+                                    {% if hours %}
+                                        {{ hours }}
+                                    {% else %}
+                                        —
+                                    {% endif %}
+                                </td>
+                            {% endfor %}
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <div style="text-align: center; padding: 30px 0; color: #5a6e7e;">
+            📅 Расписание пока не составлено
+        </div>
+    {% endif %}
+{% endblock %}

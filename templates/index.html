@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+
+{% block title %}Главная{% endblock %}
+
+{% block content %}
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="flash {{ category }}">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    {% if user and user.role == 'admin' %}
+    <div class="stats-grid">
+        <div class="stat-item">
+            <div class="stat-number">{{ stats.users }}</div>
+            <div class="stat-label">👥 Сотрудников</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-number">{{ stats.wishes }}</div>
+            <div class="stat-label">📝 Пожеланий</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-number">{{ stats.schedule }}</div>
+            <div class="stat-label">📅 Смен</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-number">{{ stats.hours }}</div>
+            <div class="stat-label">⏰ Записей часов</div>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="main-menu">
+        <a href="{{ url_for('wish') }}" class="menu-card">
+            <span class="menu-icon">📝</span>
+            <span class="menu-label">Оставить пожелание</span>
+        </a>
+
+        {% if user and user.role != 'admin' %}
+        <a href="{{ url_for('unavailable') }}" class="menu-card">
+            <span class="menu-icon">🚫</span>
+            <span class="menu-label">Недоступные дни</span>
+        </a>
+        {% endif %}
+
+        <a href="{{ url_for('view_schedule') }}" class="menu-card">
+            <span class="menu-icon">📅</span>
+            <span class="menu-label">Расписание</span>
+        </a>
+
+        <a href="{{ url_for('view_hours') }}" class="menu-card">
+            <span class="menu-icon">⏰</span>
+            <span class="menu-label">Мои часы</span>
+        </a>
+
+        {% if user and user.role == 'admin' %}
+        <a href="{{ url_for('admin') }}" class="menu-card" style="border-color: #1a5fb4; background: #f0f7ff;">
+            <span class="menu-icon">👑</span>
+            <span class="menu-label">Админ-панель</span>
+        </a>
+        {% endif %}
+    </div>
+
+    <div style="margin-top: 20px; text-align: center; font-size: 0.9rem; color: #5a6e7e; padding: 12px; background: #f8faff; border-radius: 12px;">
+        ⏰ Смены: 🌅 Утро — 7ч &nbsp;|&nbsp; ☀️ День — 12ч &nbsp;|&nbsp; 🌙 Вечер — 5ч
+    </div>
+{% endblock %}

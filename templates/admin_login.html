@@ -1,0 +1,32 @@
+cat > admin_login.html << 'EOF'
+{% extends "base.html" %}
+
+{% block title %}Вход в админ-панель{% endblock %}
+
+{% block content %}
+    <h1>👑 Вход в админ-панель</h1>
+    
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="flash {{ category }}">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+    
+    <form method="POST" style="max-width: 400px; margin: 0 auto;">
+        <div class="form-group">
+            <label>🔑 Пароль администратора</label>
+            <input type="password" name="password" placeholder="Введите пароль" required>
+        </div>
+        <button type="submit" class="btn" style="width: 100%;">🔓 Войти</button>
+    </form>
+    
+    <div style="text-align: center; margin-top: 20px;">
+        <a href="/" class="back">← Вернуться на главную</a>
+    </div>
+    <div style="text-align: center; color: #666; font-size: 14px; margin-top: 10px;">
+        Пароль по умолчанию: <strong>admin123</strong>
+    </div>
+{% endblock %}
+EOF

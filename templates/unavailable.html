@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+
+{% block title %}Недоступные дни{% endblock %}
+
+{% block content %}
+    <a href="{{ url_for('index') }}" class="back-link">← На главную</a>
+    <h2>🚫 Дни, когда я НЕ МОГУ работать</h2>
+    <p>Отметьте дни, в которые вы <strong>точно не можете</strong> выйти на смену.</p>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="flash {{ category }}">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <form method="POST" style="max-width: 700px; margin: 0 auto;">
+        <div class="form-group">
+            <label>Выберите дни, когда вы НЕ МОЖЕТЕ работать:</label>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-top: 10px;">
+                {% for day in days %}
+                    <label style="display: flex; align-items: center; gap: 8px; padding: 10px; background: #f8faff; border-radius: 8px; cursor: pointer; border: 1px solid {% if day in unavailable %} #1a5fb4 {% else %} #e8edf5 {% endif %};">
+                        <input type="checkbox" name="unavailable_days" value="{{ day }}" {% if day in unavailable %}checked{% endif %}>
+                        {{ day|capitalize }}
+                    </label>
+                {% endfor %}
+            </div>
+        </div>
+        <button type="submit" class="btn btn-primary btn-block">💾 Сохранить</button>
+    </form>
+
+    <div style="margin-top: 20px; padding: 16px; background: #f8faff; border-radius: 12px;">
+        <h3 style="margin: 0 0 8px 0; font-size: 1rem;">ℹ️ Как это работает</h3>
+        <ul style="list-style: none; padding: 0; font-size: 0.95rem; color: #4a5a6e;">
+            <li>✅ Если вы отметите день — вас <strong>не назначат</strong> на смену в этот день</li>
+            <li>✅ Это помогает избежать конфликтов с другими делами</li>
+            <li>✅ Вы можете изменить выбор в любой момент</li>
+        </ul>
+    </div>
+{% endblock %}

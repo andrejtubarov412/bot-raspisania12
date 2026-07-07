@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+
+{% block title %}Пожелания{% endblock %}
+
+{% block content %}
+    <a href="{{ url_for('index') }}" class="back-link">← На главную</a>
+    <h2>📝 Пожелания сотрудников</h2>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="flash {{ category }}">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <div class="table-responsive">
+        <table>
+            <thead>
+                <tr>
+                    <th>Сотрудник</th>
+                    {% for day in days %}
+                        <th>{{ day[:3]|capitalize }}</th>
+                    {% endfor %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for u in users %}
+                    <tr>
+                        <td><strong>{{ u[2] }}</strong></td>
+                        {% for day in days %}
+                            <td>
+                                {% set shift = user_wishes.get(u[2], {}).get(day) %}
+                                {% if shift %}
+                                    {{ SHIFT_HOURS[shift] }}
+                                {% else %}
+                                    —
+                                {% endif %}
+                            </td>
+                        {% endfor %}
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <hr style="margin: 30px 0;">
+
+    <h3>✏️ Моё пожелание</h3>
+    <form method="POST" style="max-width: 600px; margin: 0 auto;">
+        <div class="form-group">
+            <label for="day">День недели</label>
+            <select id="day" name="day" required>
+                <option value="">Выберите день</option>
+                {% for day in days %}
+                    <option value="{{ day }}">{{ day|capitalize }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="form-group">
+            <label for="shift">Смена</label>
+            <select id="shift" name="shift" required>
+                <option value="">Выберите смену</option>
+                <option value="утро">🌅 Утро (7 часов)</option>
+                <option value="день">☀️ День (12 часов)</option>
+                <option value="вечер">🌙 Вечер (5 часов)</option>
+            </select>
+            <div style="font-size:0.85rem; color:#5a6e7e; margin-top:4px;">
+                💡 Утро: 7ч &nbsp;|&nbsp; День: 12ч &nbsp;|&nbsp; Вечер: 5ч
+            </div>
+        </div>
+        <button type="submit" class="btn btn-success btn-block">✅ Отправить пожелание</button>
+    </form>
+{% endblock %}

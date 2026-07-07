@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+
+{% block title %}Часы{% endblock %}
+
+{% block content %}
+    <a href="{{ url_for('index') }}" class="back-link">← На главную</a>
+
+    {% if is_admin %}
+        <!-- Администратор: сводка по всем сотрудникам -->
+        <h2>⏰ Сводка по часам (все сотрудники)</h2>
+
+        {% if hours %}
+            <div class="stats-grid">
+                <div class="stat-item">
+                    <div class="stat-number">{{ hours|length }}</div>
+                    <div class="stat-label">👥 Сотрудников</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-number">{{ hours|sum(attribute=1)|round(1) }}</div>
+                    <div class="stat-label">⏱️ Всего часов</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-number">{{ (hours|sum(attribute=1) / hours|length)|round(1) if hours|length > 0 else 0 }}</div>
+                    <div class="stat-label">📊 Среднее</div>
+                </div>
+            </div>
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr><th>#</th><th>Сотрудник</th><th>Всего часов</th></tr>
+                    </thead>
+                    <tbody>
+                        {% for name, total in hours %}
+                            <tr>
+                                <td>{{ loop.index }}</td>
+                                <td><strong>{{ name }}</strong></td>
+                                <td style="font-weight: bold; color: #1a5fb4;">{{ total|round(1) }} ч.</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div style="text-align: center; padding: 30px 0; color: #5a6e7e;">
+                ⏰ Данных по часам пока нет.
+            </div>
+        {% endif %}
+
+        <div style="margin-top: 20px; padding: 16px; background: #f8faff; border-radius: 12px;">
+            <h3 style="margin: 0 0 8px 0; font-size: 1rem;">ℹ️ Продолжительность смен</h3>
+            <ul style="list-style: none; display: flex; flex-wrap: wrap; gap: 18px; padding: 0;">
+                <li>🌅 Утро: 7 ч</li>
+                <li>☀️ День: 12 ч</li>
+                <li>🌙 Вечер: 5 ч</li>
+            </ul>
+        </div>
+
+    {% else %}
+        <!-- Сотрудник: свои часы за прошлую неделю -->
+        <h2>⏰ Мои часы за прошлую неделю</h2>
+        <p><strong>Неделя:</strong> {{ week_start }} – {{ week_end }}</p>
+
+        {% if hours %}
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Дата</th>
+                            <th>Смена</th>
+                            <th>Часы</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for date, hours_val, shift in hours %}
+                            <tr>
+                                <td>{{ date }}</td>
+                                <td>{{ shift|capitalize }}</td>
+                                <td>{{ hours_val }} ч.</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <div style="margin-top: 16px; font-weight: bold;">
+                Итого: {{ hours|sum(attribute=1)|round(1) }} ч.
+            </div>
+        {% else %}
+            <div style="text-align: center; padding: 30px 0; color: #5a6e7e;">
+                ⏰ За прошлую неделю у вас нет отработанных часов.
+            </div>
+        {% endif %}
+    {% endif %}
+{% endblock %}
