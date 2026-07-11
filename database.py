@@ -93,6 +93,10 @@ class Database:
         self.conn.commit()
         return True
 
+    def clear_wishes_for_user(self, account_id):
+        self.c.execute('DELETE FROM wishes WHERE account_id = ?', (account_id,))
+        self.conn.commit()
+
     def get_wishes(self):
         self.c.execute('SELECT a.full_name, w.day, w.shift FROM wishes w JOIN accounts a ON w.account_id = a.id ORDER BY w.day')
         return self.c.fetchall()
@@ -169,15 +173,18 @@ class Database:
         self.c.execute('SELECT a.full_name, SUM(h.hours) FROM hours h JOIN accounts a ON h.account_id = a.id GROUP BY a.full_name ORDER BY SUM(h.hours) DESC')
         return self.c.fetchall()
 
-    # ---- НОВЫЙ МЕТОД ДЛЯ СОТРУДНИКА ----
     def get_hours_for_user_last_week(self, account_id):
-        """Возвращает часы сотрудника за прошлую неделю (пн–вс)"""
         today = datetime.now().date()
         monday = today - timedelta(days=today.weekday())
         start = monday - timedelta(days=7)
         end = monday - timedelta(days=1)
         self.c.execute('SELECT date, hours, shift FROM hours WHERE account_id = ? AND date BETWEEN ? AND ? ORDER BY date',
                        (account_id, start.strftime('%Y-%m-%d'), end.strftime('%Y-%m-%d')))
+        return self.c.fetchall()
+
+    def get_hours_for_user_week(self, account_id, start_date, end_date):
+        self.c.execute('SELECT date, hours, shift FROM hours WHERE account_id = ? AND date BETWEEN ? AND ? ORDER BY date',
+                       (account_id, start_date, end_date))
         return self.c.fetchall()
 
     # ---- Статистика ----
@@ -203,6 +210,14 @@ class Database:
     def set_setting(self, key, value):
         self.c.execute('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', (key, value))
         self.conn.commit()
+
+    def set_schedule_week_start(self, week_start):
+        self.c.execute('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)',
+                       ('schedule_week_start', week_start))
+        self.conn.commit()
+
+    def get_schedule_week_start(self):
+        return self.get_setting('schedule_week_start')
 
     # ---- Авторасстановка часов за неделю ----
     def auto_add_hours_for_week(self, start_date_str):

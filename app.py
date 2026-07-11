@@ -15,14 +15,12 @@ scheduler = Scheduler(db)
 
 # ---- Вспомогательные функции ----
 def get_week_dates(start_date=None):
-    """Возвращает словарь {день: дата_строка} для текущей недели (пн–вс)"""
     if start_date is None:
         start_date = datetime.now().date()
     monday = start_date - timedelta(days=start_date.weekday())
     return {day: (monday + timedelta(days=i)).strftime('%d.%m') for i, day in enumerate(DAYS)}
 
 def get_last_week_range():
-    """Возвращает (start_date, end_date) для прошлой недели (пн–вс)"""
     today = datetime.now().date()
     monday = today - timedelta(days=today.weekday())
     start = monday - timedelta(days=7)
@@ -107,25 +105,23 @@ def index():
         user = db.get_account_by_id(session['user_id'])
     return render_template('index.html', stats=stats, user=user)
 
-# ---- Пожелания ----
+# ---- Пожелания (обновлённый маршрут) ----
 @app.route('/wish', methods=['GET', 'POST'])
 @login_required
 def wish():
     user = db.get_account_by_id(session['user_id'])
     if request.method == 'POST':
-        day = request.form.get('day')
-        shift = request.form.get('shift')
-        if not day or not shift:
-            flash('❌ Заполните все поля', 'error')
-            return redirect(url_for('wish'))
-        if day not in DAYS or shift not in SHIFTS:
-            flash('❌ Неверный день или смена', 'error')
-            return redirect(url_for('wish'))
-        if db.add_wish(user['id'], day, shift):
-            flash(f'✅ Пожелание принято! {day} ({shift})', 'success')
-        else:
-            flash('❌ Ошибка сохранения', 'error')
+        # Удаляем все старые пожелания пользователя
+        db.clear_wishes_for_user(user['id'])
+        # Сохраняем новые
+        for day in DAYS:
+            shift = request.form.get(f'wish_{day}')
+            if shift and shift in SHIFTS:
+                db.add_wish(user['id'], day, shift)
+        flash('✅ Ваши пожелания сохранены!', 'success')
         return redirect(url_for('wish'))
+    
+    # GET – показываем форму
     all_users = db.get_all_accounts()
     users = [u for u in all_users if u[3] != 'admin']
     wishes = db.get_wishes()
@@ -135,7 +131,13 @@ def wish():
     for name, day, shift in wishes:
         if name in user_wishes:
             user_wishes[name][day] = shift
-    return render_template('wish.html', days=DAYS, shifts=SHIFTS, user=user, users=users, user_wishes=user_wishes, SHIFT_HOURS=SHIFT_HOURS)
+    my_wishes = {}
+    for name, day, shift in wishes:
+        if name == user['full_name']:
+            my_wishes[day] = shift
+    return render_template('wish.html', days=DAYS, shifts=SHIFTS, user=user,
+                           users=users, user_wishes=user_wishes, my_wishes=my_wishes,
+                           SHIFT_HOURS=SHIFT_HOURS)
 
 # ---- Недоступные дни ----
 @app.route('/unavailable', methods=['GET', 'POST'])
@@ -174,7 +176,14 @@ def view_schedule():
         if full_name in user_schedule:
             hours = SHIFT_HOURS.get(shift, 0)
             user_schedule[full_name][day] = hours
-    week_dates = get_week_dates()
+
+    week_start_str = db.get_schedule_week_start()
+    if week_start_str:
+        week_start = datetime.strptime(week_start_str, '%Y-%m-%d').date()
+    else:
+        week_start = datetime.now().date()
+    week_dates = get_week_dates(week_start)
+
     return render_template('schedule.html',
                            schedule=user_schedule,
                            user=user,
@@ -199,11 +208,17 @@ def view_hours():
         hours = db.get_hours()
         return render_template('hours.html', hours=hours, user=user, is_admin=True)
     else:
-        hours = db.get_hours_for_user_last_week(user['id'])
-        start, end = get_last_week_range()
-        return render_template('hours.html', hours=hours, user=user, is_admin=False,
-                               week_start=start.strftime('%d.%m.%Y'),
-                               week_end=end.strftime('%d.%m.%Y'))
+        week_start_str = db.get_schedule_week_start()
+        if week_start_str:
+            week_start = datetime.strptime(week_start_str, '%Y-%m-%d').date()
+            week_end = week_start + timedelta(days=6)
+            hours = db.get_hours_for_user_week(user['id'], week_start_str, week_end.strftime('%Y-%m-%d'))
+            week_label = f"неделя {week_start.strftime('%d.%m.%Y')} – {week_end.strftime('%d.%m.%Y')}"
+        else:
+            hours = db.get_hours_for_user_last_week(user['id'])
+            start, end = get_last_week_range()
+            week_label = f"прошлая неделя {start.strftime('%d.%m.%Y')} – {end.strftime('%d.%m.%Y')}"
+        return render_template('hours.html', hours=hours, user=user, is_admin=False, week_label=week_label)
 
 # ---- Админ-панель ----
 @app.route('/admin')
@@ -216,7 +231,6 @@ def admin():
     users = db.get_all_accounts()
     user = db.get_account_by_id(session['user_id'])
     
-    # Вычисляем дату понедельника текущей недели для поля ввода
     today = datetime.now().date()
     monday = today - timedelta(days=today.weekday())
     default_start_date = monday.strftime('%Y-%m-%d')
@@ -238,9 +252,20 @@ def admin():
 def admin_action():
     action = request.form.get('action')
     if action == 'generate':
-        result = scheduler.generate()
+        week_start = request.form.get('week_start')
+        if week_start:
+            try:
+                datetime.strptime(week_start, '%Y-%m-%d')
+            except ValueError:
+                flash('❌ Неверный формат даты. Используйте ГГГГ-ММ-ДД.', 'error')
+                return redirect(url_for('admin'))
+        else:
+            today = datetime.now().date()
+            days_until_monday = (7 - today.weekday()) % 7
+            week_start = (today + timedelta(days=days_until_monday)).strftime('%Y-%m-%d')
+        result = scheduler.generate(week_start)
         if result:
-            flash('✅ Расписание сгенерировано! (черновик)', 'success')
+            flash(f'✅ Расписание сгенерировано для недели {week_start}! (черновик)', 'success')
         else:
             flash('❌ Нет сотрудников! Добавьте их через регистрацию.', 'error')
     elif action == 'clear_wishes':
@@ -262,7 +287,10 @@ def admin_action():
             flash('❌ Заполните все поля', 'error')
     elif action == 'publish':
         db.set_setting('schedule_published', '1')
-        flash('✅ Расписание опубликовано!', 'success')
+        week_start = db.get_schedule_week_start()
+        if week_start:
+            db.auto_add_hours_for_week(week_start)
+        flash('✅ Расписание опубликовано! Часы за неделю добавлены.', 'success')
     return redirect(url_for('admin'))
 
 # ---- Редактирование расписания ----
@@ -293,7 +321,12 @@ def edit_schedule():
     for day, shift, account_id, full_name in schedule:
         schedule_dict[(day, shift)] = account_id
     user = db.get_account_by_id(session['user_id'])
-    week_dates = get_week_dates()
+    week_start_str = db.get_schedule_week_start()
+    if week_start_str:
+        week_start = datetime.strptime(week_start_str, '%Y-%m-%d').date()
+    else:
+        week_start = datetime.now().date()
+    week_dates = get_week_dates(week_start)
     return render_template('edit_schedule.html',
                            days=DAYS,
                            shifts=SHIFTS,
@@ -317,6 +350,50 @@ def auto_hours():
         return redirect(url_for('admin'))
     db.auto_add_hours_for_week(start_date)
     flash(f'✅ Часы за неделю, начинающуюся с {start_date}, успешно добавлены!', 'success')
+    return redirect(url_for('admin'))
+
+# ---- Добавить часы за предыдущую неделю одной кнопкой ----
+@app.route('/admin/add_previous_week_hours', methods=['POST'])
+@admin_required
+def add_previous_week_hours():
+    today = datetime.now().date()
+    monday = today - timedelta(days=today.weekday())
+    previous_monday = monday - timedelta(days=7)
+    start_date = previous_monday.strftime('%Y-%m-%d')
+    db.auto_add_hours_for_week(start_date)
+    flash(f'✅ Часы за предыдущую неделю ({start_date}) успешно добавлены!', 'success')
+    return redirect(url_for('admin'))
+
+# ---- Очистка всех часов ----
+@app.route('/admin/clear_hours', methods=['POST'])
+@admin_required
+def clear_hours():
+    db.c.execute('DELETE FROM hours')
+    db.conn.commit()
+    flash('✅ Все часы удалены!', 'success')
+    return redirect(url_for('admin'))
+
+# ---- Сброс привязки к неделе ----
+@app.route('/admin/clear_week_start', methods=['POST'])
+@admin_required
+def clear_week_start():
+    db.c.execute('DELETE FROM settings WHERE key = "schedule_week_start"')
+    db.conn.commit()
+    flash('✅ Привязка к неделе сброшена. Расписание показывает текущую неделю.', 'success')
+    return redirect(url_for('admin'))
+
+# ---- Полный сброс БД (осторожно!) ----
+@app.route('/admin/clear_all', methods=['POST'])
+@admin_required
+def clear_all():
+    db.c.execute('DELETE FROM accounts')
+    db.c.execute('DELETE FROM wishes')
+    db.c.execute('DELETE FROM unavailable_days')
+    db.c.execute('DELETE FROM schedule')
+    db.c.execute('DELETE FROM hours')
+    db.c.execute('DELETE FROM settings')
+    db.conn.commit()
+    flash('🗑️ ВСЕ ДАННЫЕ УДАЛЕНЫ! Перезапустите сервер для восстановления администратора.', 'warning')
     return redirect(url_for('admin'))
 
 # ---- API ----

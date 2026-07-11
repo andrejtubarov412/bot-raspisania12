@@ -7,7 +7,7 @@ class Scheduler:
     def __init__(self, db):
         self.db = db
 
-    def generate(self):
+    def generate(self, week_start=None):
         users = self.db.get_all_accounts()
         if not users:
             return None
@@ -17,13 +17,11 @@ class Scheduler:
         if not user_names:
             return None
 
-        # Получаем недоступные дни
         unavailable_by_user = {}
         for name in user_names:
             user_id = user_id_map[name]
             unavailable_by_user[name] = self.db.get_unavailable_days(user_id)
 
-        # Получаем пожелания
         wishes = self.db.get_wishes()
         wishes_by_user = defaultdict(list)
         for name, day, shift in wishes:
@@ -33,7 +31,6 @@ class Scheduler:
         result = defaultdict(dict)
         assigned_count = defaultdict(int)
 
-        # ШАГ 1: Назначаем по одному пожеланию на сотрудника (с учётом недоступных)
         sorted_users = sorted(wishes_by_user.keys(), key=lambda x: len(wishes_by_user[x]))
         for name in sorted_users:
             for day, shift in wishes_by_user[name]:
@@ -49,7 +46,6 @@ class Scheduler:
                     assigned_count[name] += 1
                     break
 
-        # ШАГ 2: Заполняем оставшиеся часы свободными сотрудниками (с учётом недоступных)
         for day in DAILY_HOURS.keys():
             daily_norm = DAILY_HOURS[day]
             total_assigned = sum(result[day].values()) if day in result else 0
@@ -77,7 +73,6 @@ class Scheduler:
                         remaining = 0
                     assigned_count[name] += 1
 
-        # ШАГ 3: Если кто-то остался без смены – принудительно назначаем (проверяя недоступные)
         for name in user_names:
             if assigned_count[name] == 0:
                 for day in DAILY_HOURS.keys():
@@ -99,7 +94,6 @@ class Scheduler:
                         assigned_count[name] += 1
                         break
 
-        # Сохраняем результат в БД
         schedule_data = defaultdict(dict)
         for day, employees in result.items():
             for name, hours in employees.items():
@@ -114,6 +108,7 @@ class Scheduler:
                 schedule_data[day][shift] = name
 
         self.db.save_schedule(schedule_data)
-        # Помечаем расписание как черновик (не опубликовано)
+        if week_start:
+            self.db.set_schedule_week_start(week_start)
         self.db.set_setting('schedule_published', '0')
         return result

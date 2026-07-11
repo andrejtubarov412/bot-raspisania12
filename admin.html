@@ -1,0 +1,171 @@
+{% extends "base.html" %}
+{% block title %}Админ-панель{% endblock %}
+{% block content %}
+<h1 style="font-size: 2rem; font-weight: 700;">👑 Админ-панель</h1>
+
+<div class="section">
+    <h2>📊 Статистика</h2>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px,1fr)); gap: 16px;">
+        <div><strong>👥</strong> Пользователи: {{ stats.users }}</div>
+        <div><strong>📝</strong> Пожелания: {{ stats.wishes }}</div>
+        <div><strong>📅</strong> Ячеек расписания: {{ stats.schedule }}</div>
+        <div><strong>⏱️</strong> Записей часов: {{ stats.hours }}</div>
+        <div><strong>🚫</strong> Недоступных дней: {{ stats.unavailable }}</div>
+    </div>
+</div>
+
+<div class="section">
+    <h2>⚙️ Действия</h2>
+    <div class="flex" style="flex-wrap: wrap;">
+        <form method="POST" action="{{ url_for('admin_action') }}" class="inline-form">
+            <input type="hidden" name="action" value="generate">
+            <div style="display:inline-flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                <label for="week_start" style="font-weight:500;">Начало недели:</label>
+                <input type="date" id="week_start" name="week_start" value="{{ default_start_date }}" style="padding:6px 12px; border-radius:30px; border:1px solid #ddd;">
+                <button type="submit" class="btn btn-success btn-sm">Сгенерировать</button>
+            </div>
+        </form>
+
+        <form method="POST" action="{{ url_for('admin_action') }}" class="inline-form">
+            <input type="hidden" name="action" value="clear_wishes">
+            <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('Очистить все пожелания?')">🗑️ Очистить пожелания</button>
+        </form>
+
+        <form method="POST" action="{{ url_for('admin_action') }}" class="inline-form">
+            <input type="hidden" name="action" value="publish">
+            <button type="submit" class="btn btn-warning btn-sm">📢 Опубликовать</button>
+        </form>
+
+        <form method="POST" action="{{ url_for('add_previous_week_hours') }}" class="inline-form">
+            <button type="submit" class="btn btn-secondary btn-sm">➕ Часы за пред. неделю</button>
+        </form>
+
+        <form method="POST" action="{{ url_for('clear_hours') }}" class="inline-form">
+            <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('Удалить все часы?')">🗑️ Очистить часы</button>
+        </form>
+
+        <form method="POST" action="{{ url_for('clear_week_start') }}" class="inline-form">
+            <button type="submit" class="btn btn-secondary btn-sm" onclick="return confirm('Сбросить привязку к неделе?')">🔄 Сбросить период</button>
+        </form>
+
+        <form method="POST" action="{{ url_for('clear_all') }}" class="inline-form">
+            <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('ВСЕ ДАННЫЕ БУДУТ УДАЛЕНЫ! Продолжить?')">💣 Полный сброс БД</button>
+        </form>
+
+        <a href="{{ url_for('edit_schedule') }}" class="btn btn-sm">✏️ Редактировать</a>
+    </div>
+
+    <hr>
+
+    <form method="POST" action="{{ url_for('auto_hours') }}" style="display:inline-flex; align-items:center; gap:8px; flex-wrap:wrap;">
+        <label for="start_date" style="font-weight:500;">Добавить часы за неделю (пн):</label>
+        <input type="date" id="start_date" name="start_date" value="{{ default_start_date }}" style="padding:6px 12px; border-radius:30px; border:1px solid #ddd;">
+        <button type="submit" class="btn btn-sm">📅 Добавить</button>
+    </form>
+</div>
+
+<div class="section">
+    <h2>➕ Добавить часы вручную</h2>
+    <form method="POST" action="{{ url_for('admin_action') }}" style="display:flex; flex-wrap:wrap; gap:12px; align-items:center;">
+        <input type="hidden" name="action" value="add_hours">
+        <div class="form-group" style="margin:0;">
+            <label for="full_name">Сотрудник</label>
+            <select id="full_name" name="full_name" required>
+                <option value="">Выберите</option>
+                {% for user in users %}
+                    {% if user[3] != 'admin' %}
+                        <option value="{{ user[2] }}">{{ user[2] }}</option>
+                    {% endif %}
+                {% endfor %}
+            </select>
+        </div>
+        <div class="form-group" style="margin:0;">
+            <label for="date">Дата</label>
+            <input type="date" id="date" name="date" required>
+        </div>
+        <div class="form-group" style="margin:0;">
+            <label for="hours">Часы</label>
+            <input type="number" id="hours" name="hours" step="0.5" min="0" required style="width:80px;">
+        </div>
+        <div class="form-group" style="margin:0;">
+            <label for="shift">Смена</label>
+            <select id="shift" name="shift" required>
+                <option value="">Выберите</option>
+                {% for shift in shifts %}
+                    <option value="{{ shift }}">{{ shift }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <button type="submit" class="btn btn-success btn-sm">Добавить</button>
+    </form>
+</div>
+
+<!-- Остальные таблицы с данными -->
+<div class="section">
+    <h2>📝 Пожелания сотрудников</h2>
+    {% if wishes %}
+        <div class="table-responsive">
+            <table>
+                <thead><tr><th>Сотрудник</th><th>День</th><th>Смена</th></tr></thead>
+                <tbody>
+                    {% for name, day, shift in wishes %}
+                        <tr><td>{{ name }}</td><td>{{ day }}</td><td>{{ shift }}</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <p class="text-muted">Пожеланий пока нет.</p>
+    {% endif %}
+</div>
+
+<div class="section">
+    <h2>📅 Текущее расписание</h2>
+    {% if schedule %}
+        <div class="table-responsive">
+            <table>
+                <thead><tr><th>День</th><th>Смена</th><th>Сотрудник</th></tr></thead>
+                <tbody>
+                    {% for day, shift, account_id, full_name in schedule %}
+                        <tr><td>{{ day }}</td><td>{{ shift }}</td><td>{{ full_name }}</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <p class="text-muted">Расписание не сгенерировано.</p>
+    {% endif %}
+</div>
+
+<div class="section">
+    <h2>⏱️ Общее количество часов по сотрудникам</h2>
+    {% if hours %}
+        <div class="table-responsive">
+            <table>
+                <thead><tr><th>Сотрудник</th><th>Всего часов</th></tr></thead>
+                <tbody>
+                    {% for name, total in hours %}
+                        <tr><td>{{ name }}</td><td><strong>{{ total }}</strong></td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <p class="text-muted">Нет данных о часах.</p>
+    {% endif %}
+</div>
+
+<div class="section">
+    <h2>👥 Пользователи</h2>
+    <div class="table-responsive">
+        <table>
+            <thead><tr><th>ID</th><th>Логин</th><th>Полное имя</th><th>Роль</th></tr></thead>
+            <tbody>
+                {% for user in users %}
+                    <tr><td>{{ user[0] }}</td><td>{{ user[1] }}</td><td>{{ user[2] }}</td><td><span class="badge">{{ user[3] }}</span></td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

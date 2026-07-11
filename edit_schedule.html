@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}Редактирование расписания{% endblock %}
+{% block content %}
+<h1 style="font-size: 2rem; font-weight: 700;">✏️ Редактирование расписания</h1>
+<p><strong>Неделя:</strong>
+    {% for day in days %}
+        {{ day }} ({{ week_dates[day] }}){% if not loop.last %}, {% endif %}
+    {% endfor %}
+</p>
+
+<form method="POST" action="{{ url_for('edit_schedule') }}">
+    <div class="table-responsive">
+        <table>
+            <thead>
+                <tr>
+                    <th>День / Смена</th>
+                    {% for shift in shifts %}<th>{{ shift }}</th>{% endfor %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for day in days %}
+                    <tr>
+                        <td><strong>{{ day }}</strong></td>
+                        {% for shift in shifts %}
+                            <td>
+                                <select name="cell_{{ day }}_{{ shift }}" style="padding:4px 8px; border-radius:30px; border:1px solid #ddd; background:#f8f9fc;">
+                                    <option value="0">— пусто —</option>
+                                    {% for u in users %}
+                                        <option value="{{ u[0] }}" {% if schedule_dict.get((day, shift)) == u[0] %}selected{% endif %}>
+                                            {{ u[2] }}
+                                        </option>
+                                    {% endfor %}
+                                </select>
+                            </td>
+                        {% endfor %}
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <div class="flex mt-2">
+        <button type="submit" class="btn btn-success">💾 Сохранить изменения</button>
+        <a href="{{ url_for('admin') }}" class="btn btn-secondary">← Назад</a>
+    </div>
+</form>
+{% endblock %}

@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Недоступные дни{% endblock %}
+{% block content %}
+<h1 style="font-size: 2rem; font-weight: 700;">🚫 Мои недоступные дни</h1>
+<p class="text-muted">Отметьте дни, в которые вы <strong>не можете</strong> работать.</p>
+
+<form method="POST" action="{{ url_for('unavailable') }}">
+    <div class="section">
+        <div style="display: flex; flex-wrap: wrap; gap: 20px;">
+            {% for day in days %}
+                <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-weight: 500;">
+                    <input type="checkbox" name="unavailable_days" value="{{ day }}"
+                           {% if day in unavailable %}checked{% endif %}
+                           style="width: 18px; height: 18px; accent-color: var(--primary);">
+                    {{ day }}
+                </label>
+            {% endfor %}
+        </div>
+    </div>
+    <button type="submit" class="btn btn-success">💾 Сохранить</button>
+</form>
+{% endblock %}

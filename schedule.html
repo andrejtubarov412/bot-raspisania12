@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Расписание{% endblock %}
+{% block content %}
+<h1 style="font-size: 2rem; font-weight: 700;">📅 Расписание</h1>
+{% if not_published %}
+    <div class="flash warning">⏳ Расписание ещё не опубликовано. Зайдите позже.</div>
+{% else %}
+    {% if schedule %}
+        <p><strong>Неделя:</strong>
+            {% for day in days %}
+                {{ day }} ({{ week_dates[day] }}){% if not loop.last %}, {% endif %}
+            {% endfor %}
+        </p>
+        <div class="table-responsive">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Сотрудник</th>
+                        {% for day in days %}<th>{{ day }}<br><small style="font-weight:400;">{{ week_dates[day] }}</small></th>{% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for u in users %}
+                        <tr>
+                            <td><strong>{{ u[2] }}</strong></td>
+                            {% for day in days %}
+                                <td>{% if schedule[u[2]].get(day) %}{{ schedule[u[2]][day] }} ч{% else %}—{% endif %}</td>
+                            {% endfor %}
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <p class="text-muted">Расписание пока не сгенерировано.</p>
+    {% endif %}
+{% endif %}
+{% endblock %}

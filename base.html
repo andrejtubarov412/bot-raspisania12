@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
+    <title>{% block title %}Расписание{% endblock %}</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz@14..32&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #4361ee;
+            --primary-dark: #3a56d4;
+            --secondary: #3f37c9;
+            --accent: #4895ef;
+            --success: #4caf50;
+            --danger: #f44336;
+            --warning: #ff9800;
+            --light-bg: #f8f9fc;
+            --card-bg: #ffffff;
+            --text: #1a1a2e;
+            --text-light: #6c757d;
+            --shadow: 0 8px 30px rgba(0,0,0,0.08);
+            --radius: 16px;
+            --transition: all 0.3s ease;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--light-bg);
+            color: var(--text);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            line-height: 1.6;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            flex: 1;
+            width: 100%;
+        }
+        /* Шапка */
+        header {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            color: white;
+            padding: 16px 0;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        header .container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .logo {
+            font-size: 1.6em;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+            background: linear-gradient(135deg, #e0e7ff, #a5b4fc);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .logo span { background: none; -webkit-text-fill-color: white; }
+        nav {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 6px;
+        }
+        nav a {
+            color: rgba(255,255,255,0.8);
+            text-decoration: none;
+            padding: 6px 12px;
+            border-radius: 30px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            transition: var(--transition);
+            background: transparent;
+        }
+        nav a:hover {
+            background: rgba(255,255,255,0.12);
+            color: white;
+            transform: translateY(-1px);
+        }
+        nav a.logout {
+            color: #ff6b6b;
+        }
+        nav a.logout:hover {
+            background: rgba(255,107,107,0.15);
+        }
+        .user-info {
+            font-size: 0.85rem;
+            opacity: 0.7;
+            margin-left: 10px;
+            background: rgba(255,255,255,0.08);
+            padding: 4px 12px;
+            border-radius: 30px;
+        }
+        /* Основной контент */
+        .content {
+            background: var(--card-bg);
+            padding: 30px;
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            margin-top: 24px;
+            backdrop-filter: blur(2px);
+            border: 1px solid rgba(255,255,255,0.3);
+        }
+        /* Flash-сообщения */
+        .flash {
+            padding: 14px 20px;
+            margin: 10px 0 24px;
+            border-radius: 12px;
+            border-left: 6px solid;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: #f1f3f5;
+        }
+        .flash.success { background: #e6f7e6; border-color: var(--success); color: #1e5a1e; }
+        .flash.error   { background: #fde8e8; border-color: var(--danger); color: #7a1a1a; }
+        .flash.warning { background: #fff3e0; border-color: var(--warning); color: #7a5a1a; }
+        /* Кнопки */
+        .btn {
+            display: inline-block;
+            padding: 10px 24px;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 40px;
+            cursor: pointer;
+            text-decoration: none;
+            font-size: 0.95rem;
+            font-weight: 600;
+            transition: var(--transition);
+            box-shadow: 0 4px 10px rgba(67, 97, 238, 0.25);
+            letter-spacing: 0.3px;
+        }
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(67, 97, 238, 0.35);
+            background: var(--primary-dark);
+        }
+        .btn-success { background: var(--success); box-shadow: 0 4px 10px rgba(76, 175, 80, 0.25); }
+        .btn-success:hover { background: #388e3c; }
+        .btn-danger { background: var(--danger); box-shadow: 0 4px 10px rgba(244, 67, 54, 0.25); }
+        .btn-danger:hover { background: #c62828; }
+        .btn-warning { background: var(--warning); color: #1a1a2e; box-shadow: 0 4px 10px rgba(255, 152, 0, 0.25); }
+        .btn-warning:hover { background: #f57c00; color: white; }
+        .btn-secondary { background: #6c757d; box-shadow: 0 4px 10px rgba(108, 117, 125, 0.25); }
+        .btn-secondary:hover { background: #5a6268; }
+        .btn-sm { padding: 6px 14px; font-size: 0.8rem; }
+        /* Таблицы */
+        .table-responsive {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            margin: 20px 0;
+            border-radius: 12px;
+            border: 1px solid #e9ecef;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 600px;
+            font-size: 0.95rem;
+        }
+        th, td {
+            padding: 12px 16px;
+            text-align: left;
+            border-bottom: 1px solid #e9ecef;
+        }
+        th {
+            background: #f1f4f9;
+            font-weight: 600;
+            color: var(--text);
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        tr:last-child td { border-bottom: none; }
+        tr:hover td { background: #f8faff; }
+        /* Формы */
+        .form-group {
+            margin-bottom: 20px;
+        }
+        .form-group label {
+            display: inline-block;
+            min-width: 160px;
+            font-weight: 500;
+            color: var(--text);
+            margin-bottom: 4px;
+        }
+        .form-group input,
+        .form-group select {
+            padding: 10px 14px;
+            border: 1.5px solid #dee2e6;
+            border-radius: 30px;
+            font-size: 0.95rem;
+            transition: var(--transition);
+            background: #f8f9fc;
+            min-width: 220px;
+        }
+        .form-group input:focus,
+        .form-group select:focus {
+            border-color: var(--primary);
+            outline: none;
+            box-shadow: 0 0 0 4px rgba(67,97,238,0.1);
+            background: white;
+        }
+        .inline-form {
+            display: inline-block;
+            margin-right: 12px;
+            margin-bottom: 12px;
+        }
+        /* Секции-карточки */
+        .section {
+            background: var(--light-bg);
+            padding: 24px 28px;
+            border-radius: var(--radius);
+            margin: 28px 0;
+            border: 1px solid #edf2f7;
+            transition: var(--transition);
+        }
+        .section:hover {
+            box-shadow: 0 6px 20px rgba(0,0,0,0.04);
+        }
+        .section h2 {
+            font-size: 1.3rem;
+            margin-top: 0;
+            margin-bottom: 16px;
+            font-weight: 600;
+            color: var(--text);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        hr {
+            border: none;
+            border-top: 2px dashed #e0e6ed;
+            margin: 24px 0;
+        }
+        /* Футер */
+        footer {
+            background: #1a1a2e;
+            color: #b0b8c4;
+            text-align: center;
+            padding: 20px 0;
+            margin-top: 40px;
+            font-size: 0.9rem;
+            border-top: 1px solid #2a2a4a;
+        }
+        footer a { color: #b0b8c4; }
+        footer a:hover { color: white; }
+        /* Адаптивность */
+        @media (max-width: 768px) {
+            header .container { flex-direction: column; align-items: stretch; text-align: center; }
+            nav { justify-content: center; gap: 4px; }
+            nav a { font-size: 0.8rem; padding: 4px 10px; }
+            .user-info { margin-left: 0; display: inline-block; }
+            .content { padding: 18px; }
+            .form-group label { display: block; min-width: auto; }
+            .form-group input, .form-group select { width: 100%; min-width: unset; }
+            .btn { font-size: 0.85rem; padding: 8px 18px; }
+            .section { padding: 18px; }
+        }
+        @media (max-width: 480px) {
+            .logo { font-size: 1.2rem; }
+            nav a { font-size: 0.7rem; padding: 3px 8px; }
+            .user-info { font-size: 0.7rem; }
+            .content { padding: 12px; }
+            th, td { padding: 6px 8px; font-size: 0.8rem; }
+            .btn { font-size: 0.75rem; padding: 6px 14px; }
+            .inline-form { display: block; margin-right: 0; }
+        }
+        @media (max-width: 360px) {
+            nav a { font-size: 0.65rem; padding: 2px 6px; }
+            .logo { font-size: 1rem; }
+            .flash { font-size: 0.75rem; padding: 8px 12px; }
+        }
+        /* Дополнительные улучшения */
+        .badge {
+            background: var(--primary);
+            color: white;
+            padding: 4px 12px;
+            border-radius: 30px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        .text-muted { color: var(--text-light); }
+        .mt-2 { margin-top: 16px; }
+        .mb-2 { margin-bottom: 16px; }
+        .flex { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <div class="logo">📅 <span>Расписание</span></div>
+            <nav>
+                {% if 'user_id' in session %}
+                    <a href="{{ url_for('index') }}">Главная</a>
+                    <a href="{{ url_for('wish') }}">Пожелания</a>
+                    <a href="{{ url_for('unavailable') }}">Недоступные дни</a>
+                    <a href="{{ url_for('view_hours') }}">Мои часы</a>
+                    <a href="{{ url_for('view_schedule') }}">Расписание</a>
+                    {% if session.role == 'admin' %}
+                        <a href="{{ url_for('admin') }}">Админ-панель</a>
+                        <a href="{{ url_for('edit_schedule') }}">Редактировать</a>
+                    {% endif %}
+                    <a href="{{ url_for('logout') }}" class="logout">Выйти</a>
+                    <span class="user-info">{{ session.full_name }}</span>
+                {% else %}
+                    <a href="{{ url_for('login') }}">Вход</a>
+                    <a href="{{ url_for('register') }}">Регистрация</a>
+                {% endif %}
+            </nav>
+        </div>
+    </header>
+
+    <div class="container">
+        <div class="content">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="flash {{ category }}">{% if category == 'success' %}✅{% elif category == 'error' %}❌{% elif category == 'warning' %}⚠️{% endif %} {{ message }}</div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            {% block content %}{% endblock %}
+        </div>
+    </div>
+
+    <footer>
+        <div class="container">
+            &copy; 2026 Система управления расписанием. Сделано с ❤️
+        </div>
+    </footer>
+</body>
+</html>
