@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}Мои пожелания{% endblock %}
+{% block content %}
+<h1 style="font-size: 2rem; font-weight: 700;">📝 Мои пожелания по сменам</h1>
+
+<div class="section">
+    <h2>Выберите желаемые смены на каждый день</h2>
+    <form method="POST" action="{{ url_for('wish') }}">
+        <div class="table-responsive">
+            <table>
+                <thead>
+                    <tr><th>День недели</th><th>Желаемая смена</th></tr>
+                </thead>
+                <tbody>
+                    {% for day in days %}
+                    <tr>
+                        <td><strong>{{ day }}</strong></td>
+                        <td>
+                            <select name="wish_{{ day }}" style="padding:6px 12px; border-radius:30px; border:1px solid #ddd;">
+                                <option value="">— не выбрано —</option>
+                                {% for shift in shifts %}
+                                    <option value="{{ shift }}" {% if my_wishes.get(day) == shift %}selected{% endif %}>
+                                        {{ shift }} ({{ SHIFT_HOURS[shift] }} ч)
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <button type="submit" class="btn btn-success mt-2">💾 Сохранить все пожелания</button>
+    </form>
+</div>
+
+<div class="section">
+    <h2>📊 Пожелания всех сотрудников</h2>
+    {% if users %}
+        <div class="table-responsive">
+            <table>
+                <thead>
+                    <tr><th>Сотрудник</th>{% for day in days %}<th>{{ day }}</th>{% endfor %}</tr>
+                </thead>
+                <tbody>
+                    {% for u in users %}
+                    <tr>
+                        <td><strong>{{ u[2] }}</strong></td>
+                        {% for day in days %}
+                            <td>{% if user_wishes[u[2]].get(day) %}{{ user_wishes[u[2]][day] }}{% else %}—{% endif %}</td>
+                        {% endfor %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <p class="text-muted">Нет зарегистрированных сотрудников.</p>
+    {% endif %}
+</div>
+{% endblock %}

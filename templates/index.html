@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Главная{% endblock %}
+{% block content %}
+<h1 style="font-size: 2rem; font-weight: 700; margin-bottom: 12px;">🏠 Добро пожаловать</h1>
+<p style="font-size: 1.1rem; color: var(--text-light);">Вы вошли как <strong>{{ user.full_name }}</strong> (роль: <span class="badge">{{ user.role }}</span>)</p>
+
+<div class="section">
+    <h2>📊 Статистика</h2>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px,1fr)); gap: 16px; margin-top: 10px;">
+        <div><strong>👥</strong> Пользователей: {{ stats.users }}</div>
+        <div><strong>📝</strong> Пожеланий: {{ stats.wishes }}</div>
+        <div><strong>📅</strong> Ячеек расписания: {{ stats.schedule }}</div>
+        <div><strong>⏱️</strong> Записей о часах: {{ stats.hours }}</div>
+        <div><strong>🚫</strong> Недоступных дней: {{ stats.unavailable }}</div>
+    </div>
+</div>
+
+<div class="section">
+    <h2>Быстрые ссылки</h2>
+    <div class="flex">
+        <a href="{{ url_for('wish') }}" class="btn">📝 Мои пожелания</a>
+        <a href="{{ url_for('unavailable') }}" class="btn btn-secondary">🚫 Недоступные дни</a>
+        <a href="{{ url_for('view_hours') }}" class="btn btn-success">⏱️ Мои часы</a>
+        <a href="{{ url_for('view_schedule') }}" class="btn btn-warning">📅 Расписание</a>
+        {% if session.role == 'admin' %}
+            <a href="{{ url_for('admin') }}" class="btn btn-danger">👑 Админ-панель</a>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
