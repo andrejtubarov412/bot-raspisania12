@@ -8,8 +8,14 @@ class Database:
     def __init__(self, db_name='schedule.db'):
         self.conn = sqlite3.connect(db_name, check_same_thread=False)
         self.c = self.conn.cursor()
+        # 1. Создаём таблицы (без данных)
         self._create_tables()
-        self._migrate_salaries()  # миграция для добавления новых столбцов
+        # 2. Выполняем миграции (добавляем новые столбцы, если их нет)
+        self._migrate_accounts()
+        self._migrate_salaries()
+        self._deduplicate_salaries()
+        # 3. Теперь можно работать с данными – все столбцы уже существуют
+        self._init_data()
 
     def _create_tables(self):
         self.c.execute('''CREATE TABLE IF NOT EXISTS accounts
@@ -46,7 +52,6 @@ class Database:
         self.c.execute('''CREATE TABLE IF NOT EXISTS settings
                          (key TEXT PRIMARY KEY,
                           value TEXT)''')
-        # Таблица зарплаты – создаём с тремя дополнительными полями
         self.c.execute('''CREATE TABLE IF NOT EXISTS salaries
                          (id INTEGER PRIMARY KEY,
                           account_id INTEGER,
@@ -55,7 +60,7 @@ class Database:
                           rate REAL,
                           amount REAL,
                           bonus REAL DEFAULT 0,
-                          deduction REAL DEFAULT 0,   -- оставляем для совместимости, но не используем
+                          deduction REAL DEFAULT 0,
                           extra1 REAL DEFAULT 0,
                           extra2 REAL DEFAULT 0,
                           extra3 REAL DEFAULT 0,
@@ -63,24 +68,20 @@ class Database:
                           FOREIGN KEY(account_id) REFERENCES accounts(id))''')
         self.conn.commit()
 
-        admin = self.get_account_by_username('admin')
-        if not admin:
-            self.create_account('admin', 'admin123', full_name='Администратор', role='admin')
-
-        if self.get_hourly_rate() is None:
-            self.set_hourly_rate(200)
-
-        # Устанавливаем названия полей по умолчанию, если их нет
-        if self.get_extra_label(1) is None:
-            self.set_extra_label(1, 'Дотация обеда')
-        if self.get_extra_label(2) is None:
-            self.set_extra_label(2, 'Надбавка за вечер')
-        if self.get_extra_label(3) is None:
-            self.set_extra_label(3, 'Переупаковка товаров')
+    def _migrate_accounts(self):
+        """Добавляет столбцы fixed_extra1, fixed_extra2, fixed_extra3 в таблицу accounts, если их нет."""
+        self.c.execute("PRAGMA table_info(accounts)")
+        columns = [row[1] for row in self.c.fetchall()]
+        if 'fixed_extra1' not in columns:
+            self.c.execute('ALTER TABLE accounts ADD COLUMN fixed_extra1 REAL DEFAULT 0')
+        if 'fixed_extra2' not in columns:
+            self.c.execute('ALTER TABLE accounts ADD COLUMN fixed_extra2 REAL DEFAULT 0')
+        if 'fixed_extra3' not in columns:
+            self.c.execute('ALTER TABLE accounts ADD COLUMN fixed_extra3 REAL DEFAULT 0')
+        self.conn.commit()
 
     def _migrate_salaries(self):
-        """Добавляет столбцы extra1, extra2, extra3, если их нет."""
-        # Проверяем существующие столбцы
+        """Добавляет столбцы extra1, extra2, extra3 в таблицу salaries, если их нет."""
         self.c.execute("PRAGMA table_info(salaries)")
         columns = [row[1] for row in self.c.fetchall()]
         if 'extra1' not in columns:
@@ -89,15 +90,41 @@ class Database:
             self.c.execute('ALTER TABLE salaries ADD COLUMN extra2 REAL DEFAULT 0')
         if 'extra3' not in columns:
             self.c.execute('ALTER TABLE salaries ADD COLUMN extra3 REAL DEFAULT 0')
-        # Если есть столбец deduction, можно скопировать его значение в extra3 (по желанию)
-        # Но мы просто оставим как есть, для новых записей deduction не используется.
         self.conn.commit()
 
-    # ---- Аккаунты (без изменений) ----
+    def _deduplicate_salaries(self):
+        """Удаляет дублирующиеся записи в таблице salaries, оставляя самую свежую (с наибольшим id) для каждой пары (account_id, week_start)."""
+        self.c.execute('''
+            DELETE FROM salaries
+            WHERE id NOT IN (
+                SELECT MAX(id)
+                FROM salaries
+                GROUP BY account_id, week_start
+            )
+        ''')
+        self.conn.commit()
+
+    def _init_data(self):
+        """Создаёт администратора и устанавливает настройки по умолчанию, если их нет."""
+        admin = self.get_account_by_username('admin')
+        if not admin:
+            self.create_account('admin', 'admin123', full_name='Администратор', role='admin')
+
+        if self.get_hourly_rate() is None:
+            self.set_hourly_rate(200)
+
+        if self.get_extra_label(1) is None:
+            self.set_extra_label(1, 'Дотация обеда')
+        if self.get_extra_label(2) is None:
+            self.set_extra_label(2, 'Надбавка за вечер')
+        if self.get_extra_label(3) is None:
+            self.set_extra_label(3, 'Переупаковка товаров')
+
+    # ---- Аккаунты ----
     def create_account(self, username, password, full_name=None, role='user'):
         password_hash = generate_password_hash(password)
         try:
-            self.c.execute('INSERT INTO accounts (username, password_hash, full_name, role) VALUES (?, ?, ?, ?)',
+            self.c.execute('INSERT INTO accounts (username, password_hash, full_name, role, fixed_extra1, fixed_extra2, fixed_extra3) VALUES (?, ?, ?, ?, 0, 0, 0)',
                            (username, password_hash, full_name or username, role))
             self.conn.commit()
             return True
@@ -105,17 +132,19 @@ class Database:
             return False
 
     def get_account_by_username(self, username):
-        self.c.execute('SELECT id, username, password_hash, full_name, role FROM accounts WHERE username = ?', (username,))
+        self.c.execute('SELECT id, username, password_hash, full_name, role, fixed_extra1, fixed_extra2, fixed_extra3 FROM accounts WHERE username = ?', (username,))
         row = self.c.fetchone()
         if row:
-            return {'id': row[0], 'username': row[1], 'password_hash': row[2], 'full_name': row[3], 'role': row[4]}
+            return {'id': row[0], 'username': row[1], 'password_hash': row[2], 'full_name': row[3], 'role': row[4],
+                    'fixed_extra1': row[5], 'fixed_extra2': row[6], 'fixed_extra3': row[7]}
         return None
 
     def get_account_by_id(self, account_id):
-        self.c.execute('SELECT id, username, full_name, role FROM accounts WHERE id = ?', (account_id,))
+        self.c.execute('SELECT id, username, full_name, role, fixed_extra1, fixed_extra2, fixed_extra3 FROM accounts WHERE id = ?', (account_id,))
         row = self.c.fetchone()
         if row:
-            return {'id': row[0], 'username': row[1], 'full_name': row[2], 'role': row[3]}
+            return {'id': row[0], 'username': row[1], 'full_name': row[2], 'role': row[3],
+                    'fixed_extra1': row[4], 'fixed_extra2': row[5], 'fixed_extra3': row[6]}
         return None
 
     def authenticate(self, username, password):
@@ -125,8 +154,22 @@ class Database:
         return None
 
     def get_all_accounts(self):
-        self.c.execute('SELECT id, username, full_name, role FROM accounts ORDER BY username')
+        self.c.execute('SELECT id, username, full_name, role, fixed_extra1, fixed_extra2, fixed_extra3 FROM accounts ORDER BY username')
         return self.c.fetchall()
+
+    # ---- Постоянные надбавки сотрудников ----
+    def get_employee_fixed_extras(self, account_id):
+        self.c.execute('SELECT fixed_extra1, fixed_extra2, fixed_extra3 FROM accounts WHERE id = ?', (account_id,))
+        row = self.c.fetchone()
+        if row:
+            return row[0], row[1], row[2]
+        return 0.0, 0.0, 0.0
+
+    def set_employee_fixed_extras(self, account_id, val1, val2, val3):
+        self.c.execute('UPDATE accounts SET fixed_extra1 = ?, fixed_extra2 = ?, fixed_extra3 = ? WHERE id = ?',
+                       (val1, val2, val3, account_id))
+        self.conn.commit()
+        return True
 
     # ---- Пожелания (без изменений) ----
     def add_wish(self, account_id, day, shift):
@@ -271,40 +314,48 @@ class Database:
 
     # ---- Названия дополнительных полей ----
     def set_extra_label(self, num, label):
-        """num: 1, 2 или 3"""
         self.set_setting(f'extra_label_{num}', label)
 
     def get_extra_label(self, num):
         return self.get_setting(f'extra_label_{num}')
 
     def get_all_extra_labels(self):
-        """Возвращает список из трёх названий."""
         return [self.get_extra_label(i) or f'Поле {i}' for i in range(1, 4)]
 
-    # ---- Зарплата ----
+    # ---- Зарплата (исправленный метод) ----
     def calculate_salary_for_week(self, week_start_str):
         start_date = datetime.strptime(week_start_str, '%Y-%m-%d').date()
         end_date = start_date + timedelta(days=6)
         rate = self.get_hourly_rate()
         accounts = self.get_all_accounts()
         for acc in accounts:
+            account_id = acc[0]
             if acc[3] == 'admin':
                 continue
-            account_id = acc[0]
+            fixed1, fixed2, fixed3 = self.get_employee_fixed_extras(account_id)
             self.c.execute('SELECT SUM(hours) FROM hours WHERE account_id = ? AND date BETWEEN ? AND ?',
                            (account_id, start_date.strftime('%Y-%m-%d'), end_date.strftime('%Y-%m-%d')))
             total = self.c.fetchone()[0] or 0.0
             amount = total * rate
-            # Вставляем с нулевыми дополнительными полями
-            self.c.execute('''INSERT OR REPLACE INTO salaries
-                              (account_id, week_start, total_hours, rate, amount, extra1, extra2, extra3)
-                              VALUES (?, ?, ?, ?, ?, 0, 0, 0)''',
-                           (account_id, start_date.strftime('%Y-%m-%d'), total, rate, amount))
+
+            self.c.execute('SELECT id FROM salaries WHERE account_id = ? AND week_start = ?',
+                           (account_id, start_date.strftime('%Y-%m-%d')))
+            row = self.c.fetchone()
+            if row:
+                salary_id = row[0]
+                self.c.execute('''UPDATE salaries
+                                  SET total_hours = ?, rate = ?, amount = ?, extra1 = ?, extra2 = ?, extra3 = ?
+                                  WHERE id = ?''',
+                               (total, rate, amount, fixed1, fixed2, fixed3, salary_id))
+            else:
+                self.c.execute('''INSERT INTO salaries
+                                  (account_id, week_start, total_hours, rate, amount, extra1, extra2, extra3)
+                                  VALUES (?, ?, ?, ?, ?, ?, ?, ?)''',
+                               (account_id, start_date.strftime('%Y-%m-%d'), total, rate, amount, fixed1, fixed2, fixed3))
         self.conn.commit()
         return True
 
     def get_all_salaries(self):
-        """Возвращает все записи с именами и доп. полями."""
         self.c.execute('''SELECT s.id, a.full_name, s.week_start, s.total_hours, s.rate, s.amount,
                                  s.bonus, s.extra1, s.extra2, s.extra3
                           FROM salaries s
@@ -318,7 +369,6 @@ class Database:
         return True
 
     def update_salary_extra(self, salary_id, field_num, value):
-        """field_num: 1, 2 или 3"""
         if field_num == 1:
             self.c.execute('UPDATE salaries SET extra1 = ? WHERE id = ?', (value, salary_id))
         elif field_num == 2:
